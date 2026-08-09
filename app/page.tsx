@@ -554,7 +554,7 @@ export default function App() {
                         <Wrench className="w-4 h-4 text-slate-600" /> Peralatan & Logistik Lomba
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-200 text-slate-600">
-                        Beli alat-alat lomba, tali, spion, balon, plastik kado, P3K, & kebersihan.
+                        Beli alat-alat lomba, tali, spion, balon, plastik kado, Sewa PS, P3K, & kebersihan.
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-200 text-right font-mono">
                         {((posBudget.peralatan / totalBudget) * 100).toFixed(1)}%
@@ -1143,7 +1143,7 @@ export default function App() {
                   <div className="flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-200">
                     <div>
                       <div className="font-bold text-slate-800">Bahan & Alat Lomba (21 Cabang)</div>
-                      <div className="text-[10px] text-slate-500">Kerupuk, spion, kerucut, spon, balon, bola, dll</div>
+                      <div className="text-[10px] text-slate-500">Kerupuk, spion, kerucut, spon, balon, bola, Sewa PS dll</div>
                     </div>
                     <div className="font-mono font-bold text-slate-700">Rp800.000</div>
                   </div>
