@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -19,10 +18,10 @@ import {
   CheckCircle2,
   Table,
   Sparkles,
+  Award,
   PenTool
 } from 'lucide-react';
 
-// Competition Data Item Interface
 interface CompetitionItem {
   id: number;
   name: string;
@@ -31,7 +30,6 @@ interface CompetitionItem {
   teamSize: number;
 }
 
-// Initial 21 Competitions List
 const INITIAL_COMPETITIONS: CompetitionItem[] = [
   { id: 1, name: 'Toktak', category: 'Bapa', group: 'Dewasa', teamSize: 2 },
   { id: 2, name: 'Voli Tirai', category: 'Bapa', group: 'Dewasa', teamSize: 3 },
@@ -65,29 +63,48 @@ const formatRupiah = (amount: number): string => {
 };
 
 export default function App() {
-  // Overall Financial State
   const totalBudget = 12000000;
   const [activeTab, setActiveTab] = useState<'summary' | 'prizes' | 'other_posts'>('summary');
-  const [activePrizePreset, setActivePrizePreset] = useState<'fit_4_5m' | 'original_6m' | 'flat'>('fit_4_5m');
+  const [activePrizePreset, setActivePrizePreset] = useState<'fit_6_1m' | 'upper_7_1m' | 'flat'>('fit_6_1m');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCell, setSelectedCell] = useState({ name: 'A1', formula: '=SUM(Pos 1:Pos 6)' });
+  const [selectedCell, setSelectedCell] = useState({ name: 'A1', formula: '=SUM(Pos 1:Pos 7)' });
   const [toast, setToast] = useState({ show: false, message: '' });
 
-  // Pos Allocations
   const [posBudget, setPosBudget] = useState({
-    hadiah: 4500000,
-    panggung: 3200000,
+    hadiah: 5100000,
+    doorprize: 1000000,
+    panggung: 2600000,
     konsumsi: 1500000,
-    peralatan: 1500000,
-    panitia: 1000000,
-    cadangan: 300000
+    peralatan: 1200000,
+    panitia: 500000,
+    cadangan: 100000
   });
 
-  // Prize Rate Parameters per Individual Winner
-  const [rates, setRates] = useState({
-    dewasa: { j1: 90000, j2: 60000, j3: 35000 },
-    anak: { j1: 35000, j2: 25000, j3: 15000 }
+  const [doorPrize, setDoorPrize] = useState({
+    qty: 5,
+    price: 200000
   });
+
+  const [rates, setRates] = useState({
+    individual: { j1: 100000, j2: 75000, j3: 50000 },
+    team: { j1: 50000, j2: 30000, j3: 20000 }
+  });
+
+  const grandTotalExpenses = useMemo(() => {
+    return (
+      posBudget.hadiah +
+      posBudget.doorprize +
+      posBudget.panggung +
+      posBudget.konsumsi +
+      posBudget.peralatan +
+      posBudget.panitia +
+      posBudget.cadangan
+    );
+  }, [posBudget]);
+
+  const remainingEventBudget = useMemo(() => {
+    return totalBudget - grandTotalExpenses;
+  }, [totalBudget, grandTotalExpenses]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !(window as any).XLSX) {
@@ -107,9 +124,10 @@ export default function App() {
 
   const competitionRows = useMemo(() => {
     return INITIAL_COMPETITIONS.map((item) => {
-      const rateJ1 = item.group === 'Dewasa' ? rates.dewasa.j1 : rates.anak.j1;
-      const rateJ2 = item.group === 'Dewasa' ? rates.dewasa.j2 : rates.anak.j2;
-      const rateJ3 = item.group === 'Dewasa' ? rates.dewasa.j3 : rates.anak.j3;
+      const isTeam = item.teamSize > 1;
+      const rateJ1 = isTeam ? rates.team.j1 : rates.individual.j1;
+      const rateJ2 = isTeam ? rates.team.j2 : rates.individual.j2;
+      const rateJ3 = isTeam ? rates.team.j3 : rates.individual.j3;
 
       const valJ1 = rateJ1 * item.teamSize;
       const valJ2 = rateJ2 * item.teamSize;
@@ -118,6 +136,7 @@ export default function App() {
 
       return {
         ...item,
+        isTeam,
         rateJ1,
         rateJ2,
         rateJ3,
@@ -129,7 +148,30 @@ export default function App() {
     });
   }, [rates]);
 
-  // Filtered rows for Search
+  const totalDoorPrizeCost = useMemo(() => {
+    return doorPrize.qty * doorPrize.price;
+  }, [doorPrize]);
+
+  const totalPrizeCost = useMemo(() => {
+    return competitionRows.reduce((acc, curr) => acc + curr.totalCost, 0);
+  }, [competitionRows]);
+
+  useEffect(() => {
+    setPosBudget((prev) => ({
+      ...prev,
+      hadiah: totalPrizeCost,
+      doorprize: totalDoorPrizeCost
+    }));
+  }, [totalPrizeCost, totalDoorPrizeCost]);
+
+  const totalPeople = useMemo(() => {
+    return competitionRows.reduce((acc, curr) => acc + curr.teamSize * 3, 0);
+  }, [competitionRows]);
+
+  const sumJ1 = useMemo(() => competitionRows.reduce((acc, curr) => acc + curr.valJ1, 0), [competitionRows]);
+  const sumJ2 = useMemo(() => competitionRows.reduce((acc, curr) => acc + curr.valJ2, 0), [competitionRows]);
+  const sumJ3 = useMemo(() => competitionRows.reduce((acc, curr) => acc + curr.valJ3, 0), [competitionRows]);
+
   const filteredRows = useMemo(() => {
     if (!searchQuery.trim()) return competitionRows;
     const q = searchQuery.toLowerCase();
@@ -138,80 +180,57 @@ export default function App() {
     );
   }, [competitionRows, searchQuery]);
 
-  // Aggregate Metrics
-  const totalPrizeCost = useMemo(() => {
-    return competitionRows.reduce((acc, curr) => acc + curr.totalCost, 0);
-  }, [competitionRows]);
-
-  const totalPeople = useMemo(() => {
-    return competitionRows.reduce((acc, curr) => acc + curr.teamSize * 3, 0);
-  }, []);
-
-  const sumJ1 = useMemo(() => competitionRows.reduce((acc, curr) => acc + curr.valJ1, 0), [competitionRows]);
-  const sumJ2 = useMemo(() => competitionRows.reduce((acc, curr) => acc + curr.valJ2, 0), [competitionRows]);
-  const sumJ3 = useMemo(() => competitionRows.reduce((acc, curr) => acc + curr.valJ3, 0), [competitionRows]);
-
-  // Sync Hadiah Pos Budget whenever Total Prize Cost changes
-  useEffect(() => {
-    setPosBudget((prev) => ({ ...prev, hadiah: totalPrizeCost }));
-  }, [totalPrizeCost]);
-
-  const grandTotalExpenses = useMemo(() => {
-    return (
-      posBudget.hadiah +
-      posBudget.panggung +
-      posBudget.konsumsi +
-      posBudget.peralatan +
-      posBudget.panitia +
-      posBudget.cadangan
-    );
-  }, [posBudget]);
-
-  const remainingEventBudget = totalBudget - grandTotalExpenses;
+  const applyPrizePreset = (type: 'fit_6_1m' | 'upper_7_1m' | 'flat') => {
+    setActivePrizePreset(type);
+    if (type === 'fit_6_1m') {
+      setRates({
+        individual: { j1: 100000, j2: 75000, j3: 50000 },
+        team: { j1: 50000, j2: 30000, j3: 20000 }
+      });
+      setDoorPrize({ qty: 5, price: 200000 });
+      showToast('Skenario Standard Diterapkan!');
+    } else if (type === 'upper_7_1m') {
+      setRates({
+        individual: { j1: 100000, j2: 75000, j3: 50000 },
+        team: { j1: 70000, j2: 50000, j3: 30000 }
+      });
+      setDoorPrize({ qty: 5, price: 250000 });
+      showToast('Skenario Optimal Diterapkan!');
+    } else if (type === 'flat') {
+      setRates({
+        individual: { j1: 80000, j2: 60000, j3: 40000 },
+        team: { j1: 40000, j2: 30000, j3: 20000 }
+      });
+      setDoorPrize({ qty: 5, price: 180000 });
+      showToast('Skenario Hemat Diterapkan!');
+    }
+  };
 
   const applyMasterPreset = (type: 'balanced' | 'prize_heavy') => {
     if (type === 'balanced') {
       setPosBudget({
-        hadiah: 4500000,
-        panggung: 3200000,
+        hadiah: 5100000,
+        doorprize: 1000000,
+        panggung: 2600000,
         konsumsi: 1500000,
-        peralatan: 1500000,
-        panitia: 1000000,
-        cadangan: 300000
+        peralatan: 1200000,
+        panitia: 500000,
+        cadangan: 100000
       });
-      applyPrizePreset('fit_4_5m');
+      applyPrizePreset('fit_6_1m');
       showToast('Skenario Seimbang 12 Juta Diterapkan!');
-    } else {
+    } else if (type === 'prize_heavy') {
       setPosBudget({
-        hadiah: 5950000,
-        panggung: 2200000,
-        konsumsi: 1500000,
-        peralatan: 1100000,
-        panitia: 1000000,
-        cadangan: 250000
+        hadiah: 5850000,
+        doorprize: 1250000,
+        panggung: 2000000,
+        konsumsi: 1400000,
+        peralatan: 1000000,
+        panitia: 400000,
+        cadangan: 100000
       });
-      applyPrizePreset('original_6m');
-      showToast('Skenario Fokus Hadiah Besar Diterapkan!');
-    }
-  };
-
-  const applyPrizePreset = (type: 'fit_4_5m' | 'original_6m' | 'flat') => {
-    setActivePrizePreset(type);
-    if (type === 'fit_4_5m') {
-      setRates({
-        dewasa: { j1: 90000, j2: 60000, j3: 35000 },
-        anak: { j1: 35000, j2: 25000, j3: 15000 }
-      });
-    } else if (type === 'original_6m') {
-      setRates({
-        dewasa: { j1: 120000, j2: 80000, j3: 50000 },
-        anak: { j1: 50000, j2: 30000, j3: 20000 }
-      });
-    } else if (type === 'flat') {
-      setRates({
-        dewasa: { j1: 70000, j2: 50000, j3: 30000 },
-        anak: { j1: 70000, j2: 50000, j3: 30000 }
-      });
+      applyPrizePreset('upper_7_1m');
+      showToast('Skenario Fokus Hadiah & Doorprize Besar Diterapkan!');
     }
   };
 
@@ -224,20 +243,19 @@ export default function App() {
 
     const workbook = XLSX.utils.book_new();
 
-    // Sheet 1: Master Rekap 12 Juta
     const masterData = [
       { No: 1, 'Pos Pengeluaran': 'Hadiah Lomba (21 Cabang)', Rincian: '93 Pemenang Individual (Dewasa & Anak)', 'Alokasi Budget (Rp)': posBudget.hadiah },
-      { No: 2, 'Pos Pengeluaran': 'Budget Panggung & Rias', Rincian: 'Panggung, sound system, dekorasi & rias MC', 'Alokasi Budget (Rp)': posBudget.panggung },
-      { No: 3, 'Pos Pengeluaran': 'Konsumsi Acara', Rincian: 'Snack lomba & nasi kotak malam puncak', 'Alokasi Budget (Rp)': posBudget.konsumsi },
-      { No: 4, 'Pos Pengeluaran': 'Peralatan & Logistik Lomba', Rincian: 'Bahan lomba, kertas kado, P3K, kebersihan', 'Alokasi Budget (Rp)': posBudget.peralatan },
-      { No: 5, 'Pos Pengeluaran': 'Apresiasi Panitia (20 Org)', Rincian: 'Bingkisan/kaos/apresiasi 20 panitia', 'Alokasi Budget (Rp)': posBudget.panitia },
-      { No: 6, 'Pos Pengeluaran': 'Dana Tak Terduga / Cadangan', Rincian: 'Antisipasi kebutuhan mendadak saat acara', 'Alokasi Budget (Rp)': posBudget.cadangan },
+      { No: 2, 'Pos Pengeluaran': 'Door Prize Utama (Malam Puncak)', Rincian: `${doorPrize.qty} Pemenang Kupon Door Prize @ ${formatRupiah(doorPrize.price)}`, 'Alokasi Budget (Rp)': posBudget.doorprize },
+      { No: 3, 'Pos Pengeluaran': 'Budget Panggung & Rias', Rincian: 'Panggung, sound system, dekorasi & rias MC', 'Alokasi Budget (Rp)': posBudget.panggung },
+      { No: 4, 'Pos Pengeluaran': 'Konsumsi Acara', Rincian: 'Snack lomba & nasi kotak malam puncak', 'Alokasi Budget (Rp)': posBudget.konsumsi },
+      { No: 5, 'Pos Pengeluaran': 'Peralatan & Logistik Lomba', Rincian: 'Bahan lomba, kertas kado, P3K, kebersihan', 'Alokasi Budget (Rp)': posBudget.peralatan },
+      { No: 6, 'Pos Pengeluaran': 'Apresiasi Panitia (20 Org)', Rincian: 'Bingkisan/kaos/apresiasi 20 panitia', 'Alokasi Budget (Rp)': posBudget.panitia },
+      { No: 7, 'Pos Pengeluaran': 'Dana Tak Terduga / Cadangan', Rincian: 'Antisipasi kebutuhan mendadak saat acara', 'Alokasi Budget (Rp)': posBudget.cadangan },
       { No: '', 'Pos Pengeluaran': 'TOTAL PENGELUARAN', Rincian: `Sisa Dana: ${formatRupiah(remainingEventBudget)}`, 'Alokasi Budget (Rp)': grandTotalExpenses }
     ];
     const sheet1 = XLSX.utils.json_to_sheet(masterData);
     XLSX.utils.book_append_sheet(workbook, sheet1, 'Rekap_Master_12Juta');
 
-    // Sheet 2: Detail Hadiah
     const exportPrizes: any[] = competitionRows.map((row) => ({
       No: row.id,
       'Nama Lomba': row.name,
@@ -260,6 +278,17 @@ export default function App() {
       'Total Hadiah (Rp)': totalPrizeCost
     });
 
+    exportPrizes.push({
+      No: '',
+      'Nama Lomba': `DOOR PRIZE UTAMA (${doorPrize.qty} Buah @ ${formatRupiah(doorPrize.price)})`,
+      'Kategori Usia': 'Semua Warga',
+      'Peserta / Tim (Orang)': doorPrize.qty,
+      'Juara 1 (Rp)': '-',
+      'Juara 2 (Rp)': '-',
+      'Juara 3 (Rp)': '-',
+      'Total Hadiah (Rp)': totalDoorPrizeCost
+    });
+
     const sheet2 = XLSX.utils.json_to_sheet(exportPrizes);
     XLSX.utils.book_append_sheet(workbook, sheet2, 'Detail_Hadiah_Lomba');
 
@@ -271,11 +300,12 @@ export default function App() {
     let text = 'REKAPITULASI ANGGARAN EVENT (TOTAL RP 12.000.000)\n';
     text += 'No\tPos Pengeluaran\tRincian\tAlokasi Budget (Rp)\n';
     text += `1\tHadiah Lomba\t21 Cabang Lomba (93 Pemenang)\t${posBudget.hadiah}\n`;
-    text += `2\tPanggung & Rias\tSewa Panggung, Sound, Dekorasi & Rias\t${posBudget.panggung}\n`;
-    text += `3\tKonsumsi\tSnack & Nasi Kotak Malam Puncak\t${posBudget.konsumsi}\n`;
-    text += `4\tPeralatan & Logistik\tBahan Lomba, Kertas Kado, P3K\t${posBudget.peralatan}\n`;
-    text += `5\tHadiah Panitia\tApresiasi 20 Orang Panitia\t${posBudget.panitia}\n`;
-    text += `6\tDana Cadangan\tCadangan Tak Terduga\t${posBudget.cadangan}\n`;
+    text += `2\tDoor Prize Utama\t${doorPrize.qty} Buah @ ${formatRupiah(doorPrize.price)}\t${posBudget.doorprize}\n`;
+    text += `3\tPanggung & Rias\tSewa Panggung, Sound, Dekorasi & Rias\t${posBudget.panggung}\n`;
+    text += `4\tKonsumsi\tSnack & Nasi Kotak Malam Puncak\t${posBudget.konsumsi}\n`;
+    text += `5\tPeralatan & Logistik\tBahan Lomba, Kertas Kado, P3K\t${posBudget.peralatan}\n`;
+    text += `6\tHadiah Panitia\tApresiasi 20 Orang Panitia\t${posBudget.panitia}\n`;
+    text += `7\tDana Cadangan\tCadangan Tak Terduga\t${posBudget.cadangan}\n`;
     text += `\tTOTAL PENGELUARAN\t\t${grandTotalExpenses}\n`;
 
     navigator.clipboard.writeText(text).then(() => {
@@ -285,7 +315,6 @@ export default function App() {
 
   return (
     <div className="bg-slate-100 text-slate-800 min-h-screen flex flex-col font-sans">
-      {/* Top Header Bar */}
       <header className="bg-[#107c41] text-white print:hidden shadow-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-2.5 flex flex-col md:flex-row justify-between items-center gap-3">
           <div className="flex items-center gap-3">
@@ -328,7 +357,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Toast Notification */}
       {toast.show && (
         <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 border border-slate-700 animate-bounce">
           <CheckCircle2 className="w-5 h-5 text-emerald-400" />
@@ -336,10 +364,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Container */}
+      {}
       <main className="max-w-7xl mx-auto w-full px-4 py-4 flex-1 flex flex-col gap-4">
-        {/* Summary Metric Cards */}
-        {}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 print:hidden">
           <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
             <div className="text-[11px] font-semibold text-slate-500 uppercase">Total Iuran Warga</div>
@@ -356,7 +382,7 @@ export default function App() {
             >
               {formatRupiah(grandTotalExpenses)}
             </div>
-            <div className="text-[10px] text-slate-400">=SUM(Pos 1 : Pos 6)</div>
+            <div className="text-[10px] text-slate-400">=SUM(Pos 1 : Pos 7)</div>
           </div>
 
           <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
@@ -369,18 +395,17 @@ export default function App() {
               {formatRupiah(remainingEventBudget)}
             </div>
             <div className="text-[10px] text-slate-400">
-              {remainingEventBudget >= 0 ? 'Aman (Pas / Surpluss)' : 'Peringatan Overbudget!'}
+              {remainingEventBudget >= 0 ? 'Aman (Pas / Surplus)' : 'Peringatan Overbudget!'}
             </div>
           </div>
 
           <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
             <div className="text-[11px] font-semibold text-slate-500 uppercase">Status Kelompok Pos</div>
-            <div className="text-xl font-bold text-amber-600 mt-0.5">6 Pos Utama</div>
-            <div className="text-[10px] text-slate-400">Hadiah, Panggung, Konsumsi, dll</div>
+            <div className="text-xl font-bold text-amber-600 mt-0.5">7 Pos Utama</div>
+            <div className="text-[10px] text-slate-400">Hadiah, Doorprize, Panggung, dll</div>
           </div>
         </div>
 
-        {/* Tab Navigation */}
         {}
         <div className="bg-white border-b border-slate-200 rounded-t-lg shadow-sm flex flex-wrap gap-1 p-1.5 print:hidden">
           <button
@@ -391,7 +416,7 @@ export default function App() {
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
-            <PieChart className="w-4 h-4" /> Tab 1: Rekap 6 Pos Anggaran (12 Juta)
+            <PieChart className="w-4 h-4" /> Tab 1: Rekap 7 Pos Anggaran (12 Juta)
           </button>
           <button
             onClick={() => setActiveTab('prizes')}
@@ -401,7 +426,7 @@ export default function App() {
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
-            <Trophy className="w-4 h-4" /> Tab 2: Detail Spreadsheet Hadiah (21 Lomba)
+            <Trophy className="w-4 h-4" /> Tab 2: Detail Spreadsheet Hadiah & Doorprize
           </button>
           <button
             onClick={() => setActiveTab('other_posts')}
@@ -411,11 +436,11 @@ export default function App() {
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
-            <ListChecks className="w-4 h-4" /> Tab 3: Rincian Panggung, Panitia & Peralatan
+            <ListChecks className="w-4 h-4" /> Tab 3: Rincian Doorprize, Panggung, Panitia & Peralatan
           </button>
         </div>
 
-        {/* TAB 1: SUMMARY OF ALL 6 POS ANGGARAN */}
+        {}
         {activeTab === 'summary' && (
           <div className="flex flex-col gap-4">
             <div className="bg-white p-4 rounded-b-lg border border-slate-200 shadow-sm">
@@ -439,12 +464,11 @@ export default function App() {
                     onClick={() => applyMasterPreset('prize_heavy')}
                     className="px-3 py-1 bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-semibold hover:bg-slate-100"
                   >
-                    Preset B: Fokus Hadiah Lomba Besar
+                    Preset B: Fokus Hadiah & Doorprize Besar
                   </button>
                 </div>
               </div>
 
-              {/* Budget Allocation Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead>
@@ -486,8 +510,33 @@ export default function App() {
                     </tr>
 
                     {/* Pos 2 */}
-                    <tr className="hover:bg-slate-50">
+                    <tr className="hover:bg-purple-50/40 bg-purple-50/20">
                       <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">2</td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 font-bold text-purple-900 flex items-center gap-1.5">
+                        <Award className="w-4 h-4 text-purple-600" /> Pos Door Prize Utama
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-slate-600">
+                        {doorPrize.qty} Buah Hadiah Kupon Doorprize Malam Puncak (@ {formatRupiah(doorPrize.price)}).
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-right font-mono text-purple-900 font-medium">
+                        {((posBudget.doorprize / totalBudget) * 100).toFixed(1)}%
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-right font-mono font-bold text-purple-900 bg-purple-100/50">
+                        {formatRupiah(posBudget.doorprize)}
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-center print:hidden">
+                        <button
+                          onClick={() => setActiveTab('prizes')}
+                          className="text-purple-700 hover:text-purple-900 text-[11px] font-semibold underline"
+                        >
+                          Edit di Tab 2
+                        </button>
+                      </td>
+                    </tr>
+
+                    {/* Pos 3 */}
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">3</td>
                       <td className="py-2.5 px-3 border-r border-slate-200 font-bold text-slate-800">
                         Budget Panggung & Rias
                       </td>
@@ -516,9 +565,9 @@ export default function App() {
                       </td>
                     </tr>
 
-                    {/* Pos 3 */}
+                    {/* Pos 4 */}
                     <tr className="hover:bg-slate-50">
-                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">3</td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">4</td>
                       <td className="py-2.5 px-3 border-r border-slate-200 font-bold text-slate-800 flex items-center gap-1.5">
                         <Utensils className="w-4 h-4 text-orange-500" /> Konsumsi Acara
                       </td>
@@ -547,14 +596,14 @@ export default function App() {
                       </td>
                     </tr>
 
-                    {/* Pos 4 */}
+                    {/* Pos 5 */}
                     <tr className="hover:bg-slate-50">
-                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">4</td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">5</td>
                       <td className="py-2.5 px-3 border-r border-slate-200 font-bold text-slate-800 flex items-center gap-1.5">
                         <Wrench className="w-4 h-4 text-slate-600" /> Peralatan & Logistik Lomba
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-200 text-slate-600">
-                        Beli alat-alat lomba, tali, spion, balon, plastik kado, Sewa PS, P3K, & kebersihan.
+                        Beli alat-alat lomba, sewa PS,  tali, spion, balon, plastik kado, P3K, & kebersihan.
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-200 text-right font-mono">
                         {((posBudget.peralatan / totalBudget) * 100).toFixed(1)}%
@@ -578,9 +627,9 @@ export default function App() {
                       </td>
                     </tr>
 
-                    {/* Pos 5 */}
+                    {/* Pos 6 */}
                     <tr className="hover:bg-slate-50">
-                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">5</td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">6</td>
                       <td className="py-2.5 px-3 border-r border-slate-200 font-bold text-slate-800 flex items-center gap-1.5">
                         <Users className="w-4 h-4 text-blue-600" /> Hadiah / Apresiasi Panitia (20 Org)
                       </td>
@@ -609,9 +658,9 @@ export default function App() {
                       </td>
                     </tr>
 
-                    {/* Pos 6 */}
+                    {/* Pos 7 */}
                     <tr className="hover:bg-slate-50">
-                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">6</td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">7</td>
                       <td className="py-2.5 px-3 border-r border-slate-200 font-bold text-slate-800 flex items-center gap-1.5">
                         <Shield className="w-4 h-4 text-teal-600" /> Dana Tak Terduga / Cadangan
                       </td>
@@ -657,7 +706,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Visual Allocation Bars */}
             {}
             <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
               <h3 className="text-xs font-bold text-slate-700 uppercase mb-3 flex items-center gap-2">
@@ -670,6 +718,13 @@ export default function App() {
                   title="Hadiah Lomba"
                 >
                   {((posBudget.hadiah / totalBudget) * 100).toFixed(0)}%
+                </div>
+                <div
+                  style={{ width: `${(posBudget.doorprize / totalBudget) * 100}%` }}
+                  className="bg-purple-600 h-full flex items-center justify-center"
+                  title="Door Prize Utama"
+                >
+                  {((posBudget.doorprize / totalBudget) * 100).toFixed(0)}%
                 </div>
                 <div
                   style={{ width: `${(posBudget.panggung / totalBudget) * 100}%` }}
@@ -714,6 +769,10 @@ export default function App() {
                   {formatRupiah(posBudget.hadiah)})
                 </div>
                 <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded bg-purple-600 inline-block"></span> Door Prize Utama (
+                  {formatRupiah(posBudget.doorprize)})
+                </div>
+                <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded bg-indigo-600 inline-block"></span> Panggung & Rias (
                   {formatRupiah(posBudget.panggung)})
                 </div>
@@ -738,35 +797,33 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 2: DETAILED SPREADSHEET FOR 21 PRIZES */}
         {}
         {activeTab === 'prizes' && (
           <div className="flex flex-col gap-4">
-            {/* Quick Preset Controls */}
             <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-3 print:hidden">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold uppercase text-slate-500 flex items-center gap-1">
-                  <Sliders className="w-3.5 h-3.5 text-emerald-600" /> Preset Tarif Hadiah:
+                  <Sliders className="w-3.5 h-3.5 text-emerald-600" /> Preset Tarif Hadiah & Doorprize:
                 </span>
                 <button
-                  onClick={() => applyPrizePreset('fit_4_5m')}
+                  onClick={() => applyPrizePreset('fit_6_1m')}
                   className={`px-2.5 py-1 text-xs border rounded transition ${
-                    activePrizePreset === 'fit_4_5m'
+                    activePrizePreset === 'fit_6_1m'
                       ? 'bg-emerald-100 text-emerald-800 border-emerald-400 font-bold'
                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
-                  A: Pas Budget Rp4,5 Juta
+                  Standard: 5,1M Lomba + 1M Door Prize
                 </button>
                 <button
-                  onClick={() => applyPrizePreset('original_6m')}
+                  onClick={() => applyPrizePreset('upper_7_1m')}
                   className={`px-2.5 py-1 text-xs border rounded transition ${
-                    activePrizePreset === 'original_6m'
+                    activePrizePreset === 'upper_7_1m'
                       ? 'bg-emerald-100 text-emerald-800 border-emerald-400 font-bold'
                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
-                  B: Pas Budget Rp6.0 Juta
+                  Optimal: 5,85M Lomba + 1,25M Door Prize
                 </button>
                 <button
                   onClick={() => applyPrizePreset('flat')}
@@ -776,7 +833,7 @@ export default function App() {
                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
-                  C: Nominal Per Orang Sama
+                  Hemat: Tarif Fleksibel
                 </button>
               </div>
 
@@ -794,7 +851,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Excel Formula Bar Simulation */}
             <div className="bg-white border border-slate-300 rounded-lg shadow-sm overflow-hidden flex items-center text-xs print:hidden">
               <div className="bg-slate-100 px-3 py-1.5 font-mono font-bold text-slate-600 border-r border-slate-300 w-16 text-center">
                 {selectedCell.name}
@@ -805,8 +861,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Main Excel Table Grid for 21 Lomba */}
-            {}
             <div className="bg-white border border-slate-300 rounded-lg shadow-sm overflow-x-auto flex-1">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -940,82 +994,97 @@ export default function App() {
                   ))}
                 </tbody>
 
-                {/* Footer Total */}
-                <tfoot className="bg-slate-200 font-bold border-t-2 border-slate-400 text-slate-800">
+                <tfoot className="bg-slate-200 font-bold border-t-2 border-slate-400 text-slate-800 divide-y divide-slate-300">
                   <tr>
-                    <td className="bg-slate-300 border-r border-slate-300 py-2.5 text-center font-mono text-[10px]">
+                    <td className="bg-slate-300 border-r border-slate-300 py-2 text-center font-mono text-[10px]">
                       23
                     </td>
-                    <td colSpan={3} className="py-2.5 px-3 border-r border-slate-300 text-right font-bold tracking-wide">
-                      TOTAL HADIAH LOMBA (=SUM)
+                    <td colSpan={3} className="py-2 px-3 border-r border-slate-300 text-right font-bold tracking-wide">
+                      SUBTOTAL HADIAH LOMBA (=SUM)
                     </td>
-                    <td className="py-2.5 px-2 border-r border-slate-300 text-center font-extrabold text-blue-900">
+                    <td className="py-2 px-2 border-r border-slate-300 text-center font-extrabold text-blue-900">
                       {totalPeople} Pemenang
                     </td>
-                    <td className="py-2.5 px-3 border-r border-slate-300 text-right font-mono text-emerald-800">
+                    <td className="py-2 px-3 border-r border-slate-300 text-right font-mono text-emerald-800">
                       {formatRupiah(sumJ1)}
                     </td>
-                    <td className="py-2.5 px-3 border-r border-slate-300 text-right font-mono text-emerald-800">
+                    <td className="py-2 px-3 border-r border-slate-300 text-right font-mono text-emerald-800">
                       {formatRupiah(sumJ2)}
                     </td>
-                    <td className="py-2.5 px-3 border-r border-slate-300 text-right font-mono text-emerald-800">
+                    <td className="py-2 px-3 border-r border-slate-300 text-right font-mono text-emerald-800">
                       {formatRupiah(sumJ3)}
                     </td>
-                    <td className="py-2.5 px-3 border-r border-slate-300 text-right font-mono text-sm text-emerald-900 bg-emerald-200/80 font-black">
+                    <td className="py-2 px-3 border-r border-slate-300 text-right font-mono text-xs text-emerald-900 bg-emerald-200/80 font-black">
                       {formatRupiah(totalPrizeCost)}
+                    </td>
+                  </tr>
+
+                  <tr className="bg-purple-100/80 text-purple-900">
+                    <td className="bg-purple-200 border-r border-slate-300 py-2 text-center font-mono text-[10px]">
+                      24
+                    </td>
+                    <td colSpan={3} className="py-2 px-3 border-r border-slate-300 text-right font-bold tracking-wide">
+                      DOOR PRIZE UTAMA MALAM PUNCAK
+                    </td>
+                    <td className="py-2 px-2 border-r border-slate-300 text-center font-extrabold text-purple-900">
+                      {doorPrize.qty} Buah
+                    </td>
+                    <td colSpan={3} className="py-2 px-3 border-r border-slate-300 text-center font-mono text-purple-800 text-[11px]">
+                      @ {formatRupiah(doorPrize.price)} / buah
+                    </td>
+                    <td className="py-2 px-3 border-r border-slate-300 text-right font-mono text-xs text-purple-950 bg-purple-200 font-black">
+                      {formatRupiah(totalDoorPrizeCost)}
                     </td>
                   </tr>
                 </tfoot>
               </table>
             </div>
 
-            {/* Parameter Rates Control Panel */}
             {}
             <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm print:hidden">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
-                <PenTool className="w-4 h-4 text-emerald-600" /> Edit Parameter Tarif Hadiah Per Orang (Simulasi Formula Live)
+                <PenTool className="w-4 h-4 text-emerald-600" /> Edit Parameter Tarif Hadiah Lomba & Door Prize Utama
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Dewasa Rates */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-blue-50/50 p-3 rounded border border-blue-200">
                   <div className="text-xs font-bold text-blue-900 mb-2 flex items-center justify-between">
-                    <span>Kelompok Dewasa / Umum (9 Lomba)</span>
-                    <span className="text-[10px] bg-blue-100 px-2 py-0.5 rounded text-blue-800">Baris 2-10</span>
+                    <span>Lomba Individu (16 Lomba)</span>
+                    <span className="text-[10px] bg-blue-100 px-2 py-0.5 rounded text-blue-800">Fixed Rate</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="text-[11px] text-slate-600 block mb-1">Juara 1 (/org)</label>
+                      <label className="text-[11px] text-slate-600 block mb-1">Juara 1</label>
                       <input
                         type="number"
                         step={5000}
-                        value={rates.dewasa.j1}
+                        value={rates.individual.j1}
                         onChange={(e) =>
-                          setRates({ ...rates, dewasa: { ...rates.dewasa, j1: Number(e.target.value) } })
+                          setRates({ ...rates, individual: { ...rates.individual, j1: Number(e.target.value) } })
                         }
                         className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono font-bold text-slate-800 focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-600 block mb-1">Juara 2 (/org)</label>
+                      <label className="text-[11px] text-slate-600 block mb-1">Juara 2</label>
                       <input
                         type="number"
                         step={5000}
-                        value={rates.dewasa.j2}
+                        value={rates.individual.j2}
                         onChange={(e) =>
-                          setRates({ ...rates, dewasa: { ...rates.dewasa, j2: Number(e.target.value) } })
+                          setRates({ ...rates, individual: { ...rates.individual, j2: Number(e.target.value) } })
                         }
                         className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono font-bold text-slate-800 focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-600 block mb-1">Juara 3 (/org)</label>
+                      <label className="text-[11px] text-slate-600 block mb-1">Juara 3</label>
                       <input
                         type="number"
                         step={5000}
-                        value={rates.dewasa.j3}
+                        value={rates.individual.j3}
                         onChange={(e) =>
-                          setRates({ ...rates, dewasa: { ...rates.dewasa, j3: Number(e.target.value) } })
+                          setRates({ ...rates, individual: { ...rates.individual, j3: Number(e.target.value) } })
                         }
                         className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono font-bold text-slate-800 focus:ring-1 focus:ring-blue-500"
                       />
@@ -1023,11 +1092,10 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Anak Rates */}
                 <div className="bg-amber-50/50 p-3 rounded border border-amber-200">
                   <div className="text-xs font-bold text-amber-900 mb-2 flex items-center justify-between">
-                    <span>Kelompok Anak-Anak / Pelajar (12 Lomba)</span>
-                    <span className="text-[10px] bg-amber-100 px-2 py-0.5 rounded text-amber-800">Baris 11-22</span>
+                    <span>Lomba Tim (5 Lomba)</span>
+                    <span className="text-[10px] bg-amber-100 px-2 py-0.5 rounded text-amber-800">Per Orang Tim</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
@@ -1035,9 +1103,9 @@ export default function App() {
                       <input
                         type="number"
                         step={5000}
-                        value={rates.anak.j1}
+                        value={rates.team.j1}
                         onChange={(e) =>
-                          setRates({ ...rates, anak: { ...rates.anak, j1: Number(e.target.value) } })
+                          setRates({ ...rates, team: { ...rates.team, j1: Number(e.target.value) } })
                         }
                         className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono font-bold text-slate-800 focus:ring-1 focus:ring-amber-500"
                       />
@@ -1047,9 +1115,9 @@ export default function App() {
                       <input
                         type="number"
                         step={5000}
-                        value={rates.anak.j2}
+                        value={rates.team.j2}
                         onChange={(e) =>
-                          setRates({ ...rates, anak: { ...rates.anak, j2: Number(e.target.value) } })
+                          setRates({ ...rates, team: { ...rates.team, j2: Number(e.target.value) } })
                         }
                         className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono font-bold text-slate-800 focus:ring-1 focus:ring-amber-500"
                       />
@@ -1059,11 +1127,43 @@ export default function App() {
                       <input
                         type="number"
                         step={5000}
-                        value={rates.anak.j3}
+                        value={rates.team.j3}
                         onChange={(e) =>
-                          setRates({ ...rates, anak: { ...rates.anak, j3: Number(e.target.value) } })
+                          setRates({ ...rates, team: { ...rates.team, j3: Number(e.target.value) } })
                         }
                         className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono font-bold text-slate-800 focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-purple-50/60 p-3 rounded border border-purple-200">
+                  <div className="text-xs font-bold text-purple-900 mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <Award className="w-3.5 h-3.5 text-purple-600" /> Control Pos Door Prize
+                    </span>
+                    <span className="text-[10px] bg-purple-100 px-2 py-0.5 rounded text-purple-800">
+                      Kupon Warga
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] text-slate-600 block mb-1">Jumlah (Buah)</label>
+                      <input
+                        type="number"
+                        value={doorPrize.qty}
+                        onChange={(e) => setDoorPrize({ ...doorPrize, qty: Number(e.target.value) })}
+                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono font-bold text-slate-800 focus:ring-1 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-slate-600 block mb-1">Harga / Buah (Rp)</label>
+                      <input
+                        type="number"
+                        step={10000}
+                        value={doorPrize.price}
+                        onChange={(e) => setDoorPrize({ ...doorPrize, price: Number(e.target.value) })}
+                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded font-mono font-bold text-slate-800 focus:ring-1 focus:ring-purple-500"
                       />
                     </div>
                   </div>
@@ -1073,12 +1173,47 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3: OTHER POSTS DETAILS */}
         {}
         {activeTab === 'other_posts' && (
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Detail Pos 2 */}
+              <div className="bg-purple-50/40 p-4 rounded-lg border border-purple-200 shadow-sm">
+                <h3 className="text-xs font-bold text-purple-900 uppercase tracking-wide mb-3 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Award className="w-4 h-4 text-purple-600" /> Detail Pos Door Prize Utama
+                  </span>
+                  <span className="font-mono text-purple-700 font-bold">{formatRupiah(posBudget.doorprize)}</span>
+                </h3>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between items-center p-2 bg-white rounded border border-purple-200 shadow-sm">
+                    <div>
+                      <div className="font-bold text-slate-800">Jumlah Paket Door Prize Utama</div>
+                      <div className="text-[10px] text-slate-500">
+                        {doorPrize.qty} unit hadiah elektronik / alat rumah tangga
+                      </div>
+                    </div>
+                    <div className="font-mono font-bold text-purple-900">{doorPrize.qty} Buah</div>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-white rounded border border-purple-200 shadow-sm">
+                    <div>
+                      <div className="font-bold text-slate-800">Estimasi Budget per Buah</div>
+                      <div className="text-[10px] text-slate-500">Kipas Angin / Magic Com / Kompor Gas / Dispenser</div>
+                    </div>
+                    <div className="font-mono font-bold text-purple-900">{formatRupiah(doorPrize.price)}</div>
+                  </div>
+                  <div className="p-2.5 bg-purple-100/60 rounded border border-purple-200 text-[11px] text-purple-900 leading-relaxed">
+                    <strong>Saran Barang Door Prize (Sesuai Budget Rp200.000 - Rp250.000):</strong>
+                    <ul className="list-disc list-inside mt-1 space-y-0.5 text-[10px] text-purple-800">
+                      <li>Kipas Angin Berdiri 16 Inci (~Rp200.000)</li>
+                      <li>Rice Cooker / Magic Com 1,2L (~Rp220.000)</li>
+                      <li>Kompor Gas 1 Tungku Rinnai/Miyako (~Rp210.000)</li>
+                      <li>Dispenser Air Panas/Normal (~Rp180.000)</li>
+                      <li>Setrika Listrik + Wajan Teflon Premium (~Rp200.000)</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                 <h3 className="text-xs font-bold text-indigo-900 uppercase tracking-wide mb-3 flex items-center justify-between">
                   <span>Detail Pos Panggung & Rias</span>
@@ -1109,7 +1244,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Detail Pos 3 */}
               <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                 <h3 className="text-xs font-bold text-orange-900 uppercase tracking-wide mb-3 flex items-center justify-between">
                   <span>Detail Pos Konsumsi</span>
@@ -1118,22 +1252,21 @@ export default function App() {
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-200">
                     <div>
-                      <div className="font-bold text-slate-800">Snack & Air Mineral Hari H Lomba</div>
-                      <div className="text-[10px] text-slate-500">Untuk juri, panitia, & peserta anak</div>
+                      <div className="font-bold text-slate-800">Bahan Masakan (diolah per RT)</div>
+                      <div className="text-[10px] text-slate-500">Bahan mentah untuk diolah bersama per RT</div>
                     </div>
-                    <div className="font-mono font-bold text-slate-700">Rp600.000</div>
+                    <div className="font-mono font-bold text-slate-700">Rp500.000</div>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-200">
+                  {/* <div className="flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-200">
                     <div>
                       <div className="font-bold text-slate-800">Nasi Kotak / Prasmanan Malam Puncak</div>
                       <div className="text-[10px] text-slate-500">60 Porsi @ Rp15.000 (Tamu & Panitia)</div>
                     </div>
                     <div className="font-mono font-bold text-slate-700">Rp900.000</div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
 
-              {/* Detail Pos 4 */}
               <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide mb-3 flex items-center justify-between">
                   <span>Detail Pos Peralatan Lomba</span>
@@ -1164,7 +1297,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Detail Pos 5 */}
               <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                 <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wide mb-3 flex items-center justify-between">
                   <span>Detail Apresiasi Panitia (20 Orang)</span>
@@ -1184,8 +1316,7 @@ export default function App() {
                     </div>
                     <p className="text-[11px] text-slate-600 leading-relaxed">
                       Dapat dialokasikan dalam bentuk <strong>Seragam Kaos Panitia</strong>,{' '}
-                      <strong>Bingkisan Sembako/Piala Panitia</strong>, atau <strong>Uang Lelah/Apresiasi</strong>{' '}
-                      sebesar Rp50.000 per anggota.
+                      <strong>Bingkisan Sembako/Piala Panitia</strong>, atau <strong>Uang Lelah/Apresiasi</strong>.
                     </p>
                   </div>
                 </div>
