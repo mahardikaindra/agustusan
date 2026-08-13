@@ -31,14 +31,14 @@ interface CompetitionItem {
 }
 
 const INITIAL_COMPETITIONS: CompetitionItem[] = [
-  { id: 1, name: 'Toktak', category: 'Bapa', group: 'Dewasa', teamSize: 2 },
-  { id: 2, name: 'Voli Tirai', category: 'Bapa', group: 'Dewasa', teamSize: 3 },
+  { id: 1, name: 'Toktak', category: 'Bapa', group: 'Dewasa', teamSize: 1 },
+  { id: 2, name: 'Voli Tirai', category: 'Bapa', group: 'Dewasa', teamSize: 6 },
   { id: 3, name: 'PES', category: 'All', group: 'Dewasa', teamSize: 1 },
-  { id: 4, name: 'Toktak', category: 'Ibu', group: 'Dewasa', teamSize: 2 },
-  { id: 5, name: 'Voli Tirai', category: 'Ibu', group: 'Dewasa', teamSize: 3 },
+  { id: 4, name: 'Toktak', category: 'Ibu', group: 'Dewasa', teamSize: 1 },
+  { id: 5, name: 'Voli Tirai', category: 'Ibu', group: 'Dewasa', teamSize: 6 },
   { id: 6, name: 'Pasang Sarung Melambungkan Balon', category: 'Ibu', group: 'Dewasa', teamSize: 1 },
-  { id: 7, name: 'Paku Sekali Pukul', category: 'Bapa', group: 'Dewasa', teamSize: 5 },
-  { id: 8, name: 'Injak Balon', category: 'Ibu', group: 'Dewasa', teamSize: 1 },
+  { id: 7, name: 'Paku Sekali Pukul', category: 'Bapa', group: 'Dewasa', teamSize: 1 },
+  { id: 8, name: 'Injak Balon', category: 'Semua Umur', group: 'Dewasa', teamSize: 1 },
   { id: 9, name: 'Karnaval', category: 'All', group: 'Dewasa', teamSize: 1 },
   { id: 10, name: 'Pindah Bendera', category: '2-3 Tahun', group: 'Anak', teamSize: 1 },
   { id: 11, name: 'Spon Air', category: '4-5 Tahun', group: 'Anak', teamSize: 1 },
@@ -73,11 +73,12 @@ export default function App() {
   const [posBudget, setPosBudget] = useState({
     hadiah: 5100000,
     doorprize: 1000000,
-    panggung: 2600000,
-    konsumsi: 1500000,
-    peralatan: 1200000,
+    panggung: 2000000,
+    konsumsi: 1000000,
+    konsumsiKarnaval: 1000000,
+    peralatan: 1000000,
     panitia: 500000,
-    cadangan: 100000
+    cadangan: 400000
   });
 
   const [doorPrize, setDoorPrize] = useState({
@@ -96,6 +97,7 @@ export default function App() {
       posBudget.doorprize +
       posBudget.panggung +
       posBudget.konsumsi +
+      posBudget.konsumsiKarnaval +
       posBudget.peralatan +
       posBudget.panitia +
       posBudget.cadangan
@@ -211,11 +213,12 @@ export default function App() {
       setPosBudget({
         hadiah: 5100000,
         doorprize: 1000000,
-        panggung: 2600000,
-        konsumsi: 1500000,
-        peralatan: 1200000,
+        panggung: 2000000,
+        konsumsi: 1000000,
+        konsumsiKarnaval: 1000000,
+        peralatan: 1000000,
         panitia: 500000,
-        cadangan: 100000
+        cadangan: 400000
       });
       applyPrizePreset('fit_6_1m');
       showToast('Skenario Seimbang 12 Juta Diterapkan!');
@@ -223,9 +226,10 @@ export default function App() {
       setPosBudget({
         hadiah: 5850000,
         doorprize: 1250000,
-        panggung: 2000000,
-        konsumsi: 1400000,
-        peralatan: 1000000,
+        panggung: 1800000,
+        konsumsi: 800000,
+        konsumsiKarnaval: 1000000,
+        peralatan: 800000,
         panitia: 400000,
         cadangan: 100000
       });
@@ -247,10 +251,11 @@ export default function App() {
       { No: 1, 'Pos Pengeluaran': 'Hadiah Lomba (21 Cabang)', Rincian: '93 Pemenang Individual (Dewasa & Anak)', 'Alokasi Budget (Rp)': posBudget.hadiah },
       { No: 2, 'Pos Pengeluaran': 'Door Prize Utama (Malam Puncak)', Rincian: `${doorPrize.qty} Pemenang Kupon Door Prize @ ${formatRupiah(doorPrize.price)}`, 'Alokasi Budget (Rp)': posBudget.doorprize },
       { No: 3, 'Pos Pengeluaran': 'Budget Panggung & Rias', Rincian: 'Panggung, sound system, dekorasi & rias MC', 'Alokasi Budget (Rp)': posBudget.panggung },
-      { No: 4, 'Pos Pengeluaran': 'Konsumsi Acara', Rincian: 'Snack lomba & nasi kotak malam puncak', 'Alokasi Budget (Rp)': posBudget.konsumsi },
-      { No: 5, 'Pos Pengeluaran': 'Peralatan & Logistik Lomba', Rincian: 'Bahan lomba, kertas kado, P3K, kebersihan', 'Alokasi Budget (Rp)': posBudget.peralatan },
-      { No: 6, 'Pos Pengeluaran': 'Apresiasi Panitia (20 Org)', Rincian: 'Bingkisan/kaos/apresiasi 20 panitia', 'Alokasi Budget (Rp)': posBudget.panitia },
-      { No: 7, 'Pos Pengeluaran': 'Dana Tak Terduga / Cadangan', Rincian: 'Antisipasi kebutuhan mendadak saat acara', 'Alokasi Budget (Rp)': posBudget.cadangan },
+      { No: 4, 'Pos Pengeluaran': 'Konsumsi Acara Lomba & Puncak', Rincian: 'Snack lomba & makan panitia/tamu', 'Alokasi Budget (Rp)': posBudget.konsumsi },
+      { No: 5, 'Pos Pengeluaran': 'Konsumsi Karnaval', Rincian: '100 orang peserta/warga @ Rp10.000', 'Alokasi Budget (Rp)': posBudget.konsumsiKarnaval },
+      { No: 6, 'Pos Pengeluaran': 'Peralatan & Logistik Lomba', Rincian: 'Bahan lomba, kertas kado, P3K, kebersihan', 'Alokasi Budget (Rp)': posBudget.peralatan },
+      { No: 7, 'Pos Pengeluaran': 'Apresiasi Panitia (20 Org)', Rincian: 'Bingkisan/kaos/apresiasi 20 panitia', 'Alokasi Budget (Rp)': posBudget.panitia },
+      { No: 8, 'Pos Pengeluaran': 'Dana Tak Terduga / Cadangan', Rincian: 'Antisipasi kebutuhan mendadak saat acara', 'Alokasi Budget (Rp)': posBudget.cadangan },
       { No: '', 'Pos Pengeluaran': 'TOTAL PENGELUARAN', Rincian: `Sisa Dana: ${formatRupiah(remainingEventBudget)}`, 'Alokasi Budget (Rp)': grandTotalExpenses }
     ];
     const sheet1 = XLSX.utils.json_to_sheet(masterData);
@@ -302,10 +307,11 @@ export default function App() {
     text += `1\tHadiah Lomba\t21 Cabang Lomba (93 Pemenang)\t${posBudget.hadiah}\n`;
     text += `2\tDoor Prize Utama\t${doorPrize.qty} Buah @ ${formatRupiah(doorPrize.price)}\t${posBudget.doorprize}\n`;
     text += `3\tPanggung & Rias\tSewa Panggung, Sound, Dekorasi & Rias\t${posBudget.panggung}\n`;
-    text += `4\tKonsumsi\tSnack & Nasi Kotak Malam Puncak\t${posBudget.konsumsi}\n`;
-    text += `5\tPeralatan & Logistik\tBahan Lomba, Kertas Kado, P3K\t${posBudget.peralatan}\n`;
-    text += `6\tHadiah Panitia\tApresiasi 20 Orang Panitia\t${posBudget.panitia}\n`;
-    text += `7\tDana Cadangan\tCadangan Tak Terduga\t${posBudget.cadangan}\n`;
+    text += `4\tKonsumsi Acara\tSnack & Nasi Kotak Malam Puncak\t${posBudget.konsumsi}\n`;
+    text += `5\tKonsumsi Karnaval\t100 Orang x Rp10.000\t${posBudget.konsumsiKarnaval}\n`;
+    text += `6\tPeralatan & Logistik\tBahan Lomba, Kertas Kado, P3K\t${posBudget.peralatan}\n`;
+    text += `7\tHadiah Panitia\tApresiasi 20 Orang Panitia\t${posBudget.panitia}\n`;
+    text += `8\tDana Cadangan\tCadangan Tak Terduga\t${posBudget.cadangan}\n`;
     text += `\tTOTAL PENGELUARAN\t\t${grandTotalExpenses}\n`;
 
     navigator.clipboard.writeText(text).then(() => {
@@ -569,10 +575,10 @@ export default function App() {
                     <tr className="hover:bg-slate-50">
                       <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">4</td>
                       <td className="py-2.5 px-3 border-r border-slate-200 font-bold text-slate-800 flex items-center gap-1.5">
-                        <Utensils className="w-4 h-4 text-orange-500" /> Konsumsi Acara
+                        <Utensils className="w-4 h-4 text-orange-500" /> Konsumsi Acara Lomba & Puncak
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-200 text-slate-600">
-                        Snack panitia/juri saat lomba & nasi kotak malam puncak. (Target: Rp1,5 Juta).
+                        Snack panitia/juri saat lomba & nasi kotak malam puncak.
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-200 text-right font-mono">
                         {((posBudget.konsumsi / totalBudget) * 100).toFixed(1)}%
@@ -596,14 +602,45 @@ export default function App() {
                       </td>
                     </tr>
 
-                    {/* Pos 5 */}
-                    <tr className="hover:bg-slate-50">
+                    {/* Pos 5: Konsumsi Karnaval */}
+                    <tr className="hover:bg-emerald-50/30 bg-emerald-50/10">
                       <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">5</td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 font-bold text-emerald-900 flex items-center gap-1.5">
+                        <Utensils className="w-4 h-4 text-emerald-600" /> Konsumsi Karnaval (100 Pax)
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-slate-600">
+                        Konsumsi/snack peserta karnaval warga: 100 orang x Rp10.000.
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-right font-mono">
+                        {((posBudget.konsumsiKarnaval / totalBudget) * 100).toFixed(1)}%
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-right font-mono font-bold text-emerald-900 bg-emerald-50/60">
+                        <input
+                          type="number"
+                          step={50000}
+                          value={posBudget.konsumsiKarnaval}
+                          onChange={(e) => setPosBudget({ ...posBudget, konsumsiKarnaval: Number(e.target.value) })}
+                          className="w-full text-right bg-transparent border-b border-dashed border-emerald-400 font-mono font-bold text-emerald-900 focus:outline-none focus:border-emerald-600"
+                        />
+                      </td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-center print:hidden">
+                        <button
+                          onClick={() => setActiveTab('other_posts')}
+                          className="text-emerald-700 hover:text-emerald-900 text-[11px] font-semibold underline"
+                        >
+                          Rincian Tab 3
+                        </button>
+                      </td>
+                    </tr>
+
+                    {/* Pos 6 */}
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">6</td>
                       <td className="py-2.5 px-3 border-r border-slate-200 font-bold text-slate-800 flex items-center gap-1.5">
                         <Wrench className="w-4 h-4 text-slate-600" /> Peralatan & Logistik Lomba
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-200 text-slate-600">
-                        Beli alat-alat lomba, sewa PS,  tali, spion, balon, plastik kado, P3K, & kebersihan.
+                        Beli alat-alat lomba, sewa PS, tali, spion, balon, plastik kado, P3K, & kebersihan.
                       </td>
                       <td className="py-2.5 px-3 border-r border-slate-200 text-right font-mono">
                         {((posBudget.peralatan / totalBudget) * 100).toFixed(1)}%
@@ -627,9 +664,9 @@ export default function App() {
                       </td>
                     </tr>
 
-                    {/* Pos 6 */}
+                    {/* Pos 7 */}
                     <tr className="hover:bg-slate-50">
-                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">6</td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">7</td>
                       <td className="py-2.5 px-3 border-r border-slate-200 font-bold text-slate-800 flex items-center gap-1.5">
                         <Users className="w-4 h-4 text-blue-600" /> Hadiah / Apresiasi Panitia (20 Org)
                       </td>
@@ -658,9 +695,9 @@ export default function App() {
                       </td>
                     </tr>
 
-                    {/* Pos 7 */}
+                    {/* Pos 8 */}
                     <tr className="hover:bg-slate-50">
-                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">7</td>
+                      <td className="py-2.5 px-3 border-r border-slate-200 text-center font-mono font-bold">8</td>
                       <td className="py-2.5 px-3 border-r border-slate-200 font-bold text-slate-800 flex items-center gap-1.5">
                         <Shield className="w-4 h-4 text-teal-600" /> Dana Tak Terduga / Cadangan
                       </td>
@@ -736,9 +773,16 @@ export default function App() {
                 <div
                   style={{ width: `${(posBudget.konsumsi / totalBudget) * 100}%` }}
                   className="bg-orange-500 h-full flex items-center justify-center"
-                  title="Konsumsi"
+                  title="Konsumsi Lomba"
                 >
                   {((posBudget.konsumsi / totalBudget) * 100).toFixed(0)}%
+                </div>
+                <div
+                  style={{ width: `${(posBudget.konsumsiKarnaval / totalBudget) * 100}%` }}
+                  className="bg-emerald-600 h-full flex items-center justify-center"
+                  title="Konsumsi Karnaval"
+                >
+                  {((posBudget.konsumsiKarnaval / totalBudget) * 100).toFixed(0)}%
                 </div>
                 <div
                   style={{ width: `${(posBudget.peralatan / totalBudget) * 100}%` }}
@@ -777,8 +821,12 @@ export default function App() {
                   {formatRupiah(posBudget.panggung)})
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded bg-orange-500 inline-block"></span> Konsumsi (
+                  <span className="w-3 h-3 rounded bg-orange-500 inline-block"></span> Konsumsi Lomba (
                   {formatRupiah(posBudget.konsumsi)})
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded bg-emerald-600 inline-block"></span> Konsumsi Karnaval (
+                  {formatRupiah(posBudget.konsumsiKarnaval)})
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded bg-slate-600 inline-block"></span> Peralatan (
@@ -1246,24 +1294,45 @@ export default function App() {
 
               <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                 <h3 className="text-xs font-bold text-orange-900 uppercase tracking-wide mb-3 flex items-center justify-between">
-                  <span>Detail Pos Konsumsi</span>
+                  <span>Detail Pos Konsumsi Lomba & Puncak</span>
                   <span className="font-mono text-orange-700 font-bold">{formatRupiah(posBudget.konsumsi)}</span>
                 </h3>
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-200">
                     <div>
-                      <div className="font-bold text-slate-800">Bahan Masakan (diolah per RT)</div>
-                      <div className="text-[10px] text-slate-500">Bahan mentah untuk diolah bersama per RT</div>
+                      <div className="font-bold text-slate-800">Snack / Air Mineral Hari H & Malam Puncak</div>
+                      <div className="text-[10px] text-slate-500">Snack juri, panitia, & konsumsi sederhana malam puncak</div>
                     </div>
-                    <div className="font-mono font-bold text-slate-700">Rp500.000</div>
+                    <div className="font-mono font-bold text-slate-700">{formatRupiah(posBudget.konsumsi)}</div>
                   </div>
-                  {/* <div className="flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-200">
+                </div>
+              </div>
+
+              <div className="bg-emerald-50/50 p-4 rounded-lg border border-emerald-200 shadow-sm">
+                <h3 className="text-xs font-bold text-emerald-900 uppercase tracking-wide mb-3 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Utensils className="w-4 h-4 text-emerald-600" /> Detail Pos Konsumsi Karnaval
+                  </span>
+                  <span className="font-mono text-emerald-800 font-bold">{formatRupiah(posBudget.konsumsiKarnaval)}</span>
+                </h3>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between items-center p-2 bg-white rounded border border-emerald-200 shadow-sm">
                     <div>
-                      <div className="font-bold text-slate-800">Nasi Kotak / Prasmanan Malam Puncak</div>
-                      <div className="text-[10px] text-slate-500">60 Porsi @ Rp15.000 (Tamu & Panitia)</div>
+                      <div className="font-bold text-slate-800">Jumlah Peserta Karnaval Warga</div>
+                      <div className="text-[10px] text-slate-500">Anak-anak & warga peserta pawai karnaval</div>
                     </div>
-                    <div className="font-mono font-bold text-slate-700">Rp900.000</div>
-                  </div> */}
+                    <div className="font-mono font-bold text-emerald-900">100 Orang</div>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-white rounded border border-emerald-200 shadow-sm">
+                    <div>
+                      <div className="font-bold text-slate-800">Tarif Konsumsi Per Orang</div>
+                      <div className="text-[10px] text-slate-500">Snack box / roti + es teh/minuman kemasan</div>
+                    </div>
+                    <div className="font-mono font-bold text-emerald-900">Rp10.000 / orang</div>
+                  </div>
+                  <div className="p-2.5 bg-emerald-100/60 rounded border border-emerald-300 text-[11px] text-emerald-900 font-mono text-center font-bold">
+                    Perhitungan: 100 Orang x Rp10.000 = {formatRupiah(posBudget.konsumsiKarnaval)}
+                  </div>
                 </div>
               </div>
 
