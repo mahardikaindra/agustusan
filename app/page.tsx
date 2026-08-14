@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -158,13 +159,14 @@ export default function App() {
     return competitionRows.reduce((acc, curr) => acc + curr.totalCost, 0);
   }, [competitionRows]);
 
-  useEffect(() => {
-    setPosBudget((prev) => ({
-      ...prev,
+  const effectivePosBudget = useMemo(
+    () => ({
+      ...posBudget,
       hadiah: totalPrizeCost,
       doorprize: totalDoorPrizeCost
-    }));
-  }, [totalPrizeCost, totalDoorPrizeCost]);
+    }),
+    [posBudget, totalPrizeCost, totalDoorPrizeCost]
+  );
 
   const totalPeople = useMemo(() => {
     return competitionRows.reduce((acc, curr) => acc + curr.teamSize * 3, 0);

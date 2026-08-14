@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
@@ -10,27 +12,18 @@ import {
   Printer, 
   Shuffle, 
   Search, 
-  CheckCircle2, 
   Download, 
-  Plus, 
-  Award, 
   Trash2, 
   RefreshCw,
   MessageCircle,
-  ChevronRight,
   Sparkles,
-  UserCheck,
   AlertTriangle,
   Users2,
   ZoomIn,
   ZoomOut,
   RotateCcw,
   Layers,
-  Flag,
-  Flame,
   Crown,
-  Settings,
-  Check
 } from 'lucide-react';
 
 // --- TypeScript Interfaces ---
@@ -125,7 +118,7 @@ function buildTeamsFromParticipants(participants: Participant[] = [], teamSize =
   }
 
   const teams: Team[] = [];
-  let currentMembers = [];
+  let currentMembers: Participant[] = [];
   let teamNumber = 1;
 
   participants.forEach((p, index) => {
@@ -158,7 +151,7 @@ function buildSessions(items: Team[] = [], perSession = 5): Session[] {
   if (!items || items.length === 0) return [];
   const validPerSession = Math.max(1, perSession);
   const sessions: Session[] = [];
-  let currentSession = [];
+  let currentSession: Team[] = [];
   let sessionNumber = 1;
 
   items.forEach((item, index) => {
@@ -223,12 +216,12 @@ function parseCSV(text: string): Record<string, string>[] {
   if (lines.length < 2) return [];
 
   const headers = lines[0].map(h => h.trim().replace(/^"|"$/g, ''));
-  const results = [];
+  const results: Record<string, string>[] = [];
 
   for (let i = 1; i < lines.length; i++) {
     const values = lines[i];
     if (values.length === 0 || (values.length === 1 && !values[0])) continue;
-    const obj = {};
+    const obj: Record<string, string> = {};
     headers.forEach((header, index) => {
       obj[header] = values[index] ? values[index].replace(/^"|"$/g, '') : '';
     });
@@ -314,41 +307,28 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Load data from local storage on initial mount
+  // Load data from local storage on initial component mount
   useEffect(() => {
-    const storedCSV = localStorage.getItem('dashboardLombaCSV');
-    if (storedCSV) {
-      // 1. Prioritas utama: Muat dari Local Storage
-      processCSVContent(storedCSV);
-      showToast('Data dari sesi terakhir berhasil dimuat.');
-    } else {
-      // 2. Jika Local Storage kosong, coba muat dari file lokal di folder /public
-      fetch('/data-pendaftar.csv') // Pastikan file ini ada di folder /public
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('File data default tidak ditemukan di folder public.');
-          }
-          return response.text();
-        })
-        .then(csvText => {
-          processCSVContent(csvText);
-          showToast('Berhasil memuat data default dari file lokal.');
-        })
-        .catch(err => {
-          console.warn(err.message);
-          // 3. Jika semua gagal, tunggu unggahan manual
-          showToast('Tidak ada data tersimpan. Silakan unggah file CSV.');
-        });
+    const savedCSV = localStorage.getItem('dashboardLombaCSV');
+    if (savedCSV) {
+      processCSVContent(savedCSV);
+      // showToast('Data terakhir berhasil dimuat dari penyimpanan lokal.');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Empty array ensures this runs only once on mount
 
-  // Bracket Zoom Controls
-  const handleZoomIn = () => setBracketZoom(prev => Math.min(prev + 15, 175));
-  const handleZoomOut = () => setBracketZoom(prev => Math.max(prev - 15, 50));
-  const handleResetZoom = () => setBracketZoom(100);
+  const handleZoomIn = () => {
+    setBracketZoom(prev => Math.min(150, prev + 10));
+  };
 
-  const processCSVContent = (csvString: string) => {
+  const handleZoomOut = () => {
+    setBracketZoom(prev => Math.max(50, prev - 10));
+  };
+
+  const handleResetZoom = () => {
+    setBracketZoom(100);
+  };
+
+  function processCSVContent(csvString: string) {
     try {
       const parsedData = parseCSV(csvString);
       if (!parsedData || parsedData.length === 0) {
@@ -365,7 +345,7 @@ export default function App() {
       parsedData.forEach((row, index) => {
         // Extract fields dynamically
         const keys = Object.keys(row);
-        const findField = (terms) => {
+        const findField = (terms: string[]) => {
           const found = keys.find(k => terms.some(t => k.toLowerCase().includes(t.toLowerCase())));
           return found ? row[found] : '';
         };
@@ -449,17 +429,24 @@ export default function App() {
       setSessionWinners({});
       showToast(`Berhasil memuat ${participants.length} peserta!`);
     } catch (err) {
-      showToast('Gagal memproses file CSV: ' + err.message);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      showToast('Gagal memproses file CSV: ' + message);
     }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      processCSVContent(event.target.result);
+      const result = event.target?.result;
+      if (typeof result !== 'string') {
+        showToast('File CSV tidak valid atau kosong.');
+        return;
+      }
+
+      processCSVContent(result);
     };
     reader.readAsText(file);
   };
@@ -484,13 +471,16 @@ export default function App() {
   useEffect(() => {
     if (bracketLombaKey && groupedLombaMap[bracketLombaKey]) {
       const currentLomba = groupedLombaMap[bracketLombaKey];
-      setShuffledBracketParticipants([...currentLomba.participants]);
-      setBracketWinners({});
-      setSessionWinners({});
-
       const conf = getLombaConfig(currentLomba.lombaTitle, currentLomba.categoryGroup);
-      setCompetitionDisplayMode(conf.isSessionGame ? 'session' : 'bracket');
-      setPerSessionCapacity(conf.defaultCapacity);
+      
+      // Use a batch update to avoid cascading renders
+      queueMicrotask(() => {
+        setShuffledBracketParticipants([...currentLomba.participants]);
+        setBracketWinners({});
+        setSessionWinners({});
+        setCompetitionDisplayMode(conf.isSessionGame ? 'session' : 'bracket');
+        setPerSessionCapacity(conf.defaultCapacity);
+      });
     }
   }, [bracketLombaKey, groupedLombaMap]);
 
@@ -855,8 +845,7 @@ export default function App() {
           <div 
             style={{ 
               zoom: `${bracketZoom}%`,
-              WebkitZoom: `${bracketZoom}%`
-            }}
+            } as any}
             className="inline-flex items-center space-x-8 min-w-max py-4 px-2 transition-all duration-150 ease-out"
           >
             {rounds.map((round) => {
@@ -1039,7 +1028,7 @@ export default function App() {
               </div>
               <div>
                 <p className="text-sm font-bold">Silakan Unggah File CSV Pendaftaran Anda</p>
-                <p className="text-xs text-amber-700">Mendukung file ekspor dari Google Form atau Excel. Klik "Muat Contoh Data" untuk simulasi cepat.</p>
+                <p className="text-xs text-amber-700">{`Mendukung file ekspor dari Google Form atau Excel. Klik "Muat Contoh Data" untuk simulasi cepat.`}</p>
               </div>
             </div>
             <label className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl cursor-pointer transition shadow flex items-center gap-1.5 whitespace-nowrap">
