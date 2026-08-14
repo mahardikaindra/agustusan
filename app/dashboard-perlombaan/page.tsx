@@ -309,12 +309,25 @@ export default function App() {
 
   // Load data from local storage on initial component mount
   useEffect(() => {
-    const savedCSV = localStorage.getItem('dashboardLombaCSV');
-    if (savedCSV) {
-      processCSVContent(savedCSV);
-      // showToast('Data terakhir berhasil dimuat dari penyimpanan lokal.');
+    async function loadInitialData() {
+      const savedCSV = localStorage.getItem('dashboardLombaCSV');
+      if (savedCSV) {
+        processCSVContent(savedCSV);
+        showToast('Data terakhir berhasil dimuat dari penyimpanan lokal.');
+      } else {
+        try {
+          const response = await fetch('/data-pendaftar.csv');
+          if (!response.ok) throw new Error('Gagal mengambil data pendaftar awal.');
+          const csvText = await response.text();
+          processCSVContent(csvText);
+          showToast('Berhasil memuat data pendaftar awal.');
+        } catch (error) {
+          console.error("Gagal memuat data CSV awal:", error);
+        }
+      }
     }
-  }, []); // Empty array ensures this runs only once on mount
+    loadInitialData();
+  }, []);
 
   const handleZoomIn = () => {
     setBracketZoom(prev => Math.min(150, prev + 10));
