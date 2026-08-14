@@ -106,8 +106,16 @@ function getLombaConfig(lombaTitle = '', categoryGroup = '') {
 function buildTeamsFromParticipants(participants: Participant[] = [], teamSize = 1): Team[] {
   if (!participants || participants.length === 0) return [];
 
+  // Create a mutable copy and shuffle it to randomize team grouping
+  const shuffledParticipants = [...participants];
+  for (let i = shuffledParticipants.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledParticipants[i], shuffledParticipants[j]] = [shuffledParticipants[j], shuffledParticipants[i]];
+  }
+
+  // If it's an individual competition, just return the shuffled list of participants as "teams" of 1
   if (teamSize <= 1) {
-    return participants.map((p, idx) => ({
+    return shuffledParticipants.map((p, idx) => ({
       teamId: `team_indiv_${p.id || idx}`,
       teamName: p.nama,
       members: [p],
@@ -121,7 +129,7 @@ function buildTeamsFromParticipants(participants: Participant[] = [], teamSize =
   let currentMembers: Participant[] = [];
   let teamNumber = 1;
 
-  participants.forEach((p, index) => {
+  shuffledParticipants.forEach((p, index) => {
     currentMembers.push(p);
 
     if (currentMembers.length === teamSize || index === participants.length - 1) {
@@ -1573,6 +1581,30 @@ export default function App() {
                       p.blok.toLowerCase().includes(searchMaster.toLowerCase()) ||
                       p.wa.includes(searchMaster)
                     )
+                    .sort((a, b) => { // NOSONAR
+                      const parseBlok = (blok: string) => {
+                        const match = blok.match(/^([A-Z]+)(\d+.*)$/i);
+                        if (!match) return { letter: blok.toLowerCase(), numbers: [] };
+
+                        const letterPart = match[1].toLowerCase();
+                        const numberParts = match[2].split(/[\/-]/).map(n => parseInt(n, 10)).filter(n => !isNaN(n));
+                        
+                        return { letter: letterPart, numbers: numberParts };
+                      };
+
+                      const blokA = parseBlok(a.blok);
+                      const blokB = parseBlok(b.blok);
+
+                      if (blokA.letter < blokB.letter) return -1;
+                      if (blokA.letter > blokB.letter) return 1;
+
+                      for (let i = 0; i < Math.min(blokA.numbers.length, blokB.numbers.length); i++) {
+                        if (blokA.numbers[i] !== blokB.numbers[i]) {
+                          return blokA.numbers[i] - blokB.numbers[i];
+                        }
+                      }
+                      return blokA.numbers.length - blokB.numbers.length;
+                    })
                     .map((p, i) => (
                       <tr key={p.id} className="hover:bg-slate-50">
                         <td className="py-3 px-3 text-center text-slate-400 font-bold">{i + 1}</td>
