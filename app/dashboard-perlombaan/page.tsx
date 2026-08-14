@@ -75,7 +75,7 @@ function getLombaConfig(lombaTitle = '', categoryGroup = '') {
   else if (name.includes('toktak') || name.includes('tok-tak') || name.includes('tok tak')) teamSize = 2;
   else if (name.includes('voli tirai')) teamSize = 3;
   else if (name.includes('tarik tambang')) teamSize = 5;
-  else if (name.includes('sarung') || name.includes('melambungkan bola')) teamSize = 2; // Berpasangan 2 orang/sarung
+  else if (name.includes('sarung') || name.includes('melambungkan bola')) teamSize = 1; // Berpasangan 2 orang/sarung
 
   // 2. Race / Session-based Games Detection (e.g. 15 participants divided into 3 sessions of 5)
   const isSessionGame = (
@@ -106,13 +106,7 @@ function getLombaConfig(lombaTitle = '', categoryGroup = '') {
 function buildTeamsFromParticipants(participants: Participant[] = [], teamSize = 1): Team[] {
   if (!participants || participants.length === 0) return [];
 
-  // Create a mutable copy and shuffle it to randomize team grouping
-  const shuffledParticipants = [...participants];
-  for (let i = shuffledParticipants.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffledParticipants[i], shuffledParticipants[j]] = [shuffledParticipants[j], shuffledParticipants[i]];
-  }
-
+  const shuffledParticipants = participants; // Use the pre-shuffled list
   // If it's an individual competition, just return the shuffled list of participants as "teams" of 1
   if (teamSize <= 1) {
     return shuffledParticipants.map((p, idx) => ({
@@ -911,7 +905,7 @@ export default function App() {
                               </span>
                             </div>
                             {match.p1.members && match.p1.members.length > 0 && (
-                              <p className={`text-[10px] font-normal mt-0.5 truncate ${
+                              <p className={`text-[10px] font-normal mt-0.5 line-clamp-2 ${
                                 match.winner?.teamId === match.p1.teamId ? 'text-emerald-100' : 'text-slate-500'
                               }`}>
                                 Anggota: {match.p1.members.map(m => m.nama).join(', ')}
@@ -949,7 +943,7 @@ export default function App() {
                               </span>
                             </div>
                             {match.p2.members && match.p2.members.length > 0 && (
-                              <p className={`text-[10px] font-normal mt-0.5 truncate ${
+                              <p className={`text-[10px] font-normal mt-0.5 line-clamp-2 ${
                                 match.winner?.teamId === match.p2.teamId ? 'text-emerald-100' : 'text-slate-500'
                               }`}>
                                 Anggota: {match.p2.members.map(m => m.nama).join(', ')}
