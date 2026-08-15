@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Users, 
   Trophy, 
@@ -23,8 +23,12 @@ import {
   ZoomOut,
   RotateCcw,
   Layers,
+  Maximize,
+  Minimize,
+  ImageDown,
   Crown,
 } from 'lucide-react';
+import { toPng } from 'html-to-image';
 
 // --- TypeScript Interfaces ---
 
@@ -304,6 +308,8 @@ export default function App() {
   const [bracketLombaKey, setBracketLombaKey] = useState('');
   const [bracketWinners, setBracketWinners] = useState<BracketWinnersMap>({});
   const [shuffledBracketParticipants, setShuffledBracketParticipants] = useState<Participant[]>([]);
+  const bracketRef = useRef<HTMLDivElement>(null);
+  const [isFullScreen, setIsFullScreen] = useState(false);
   const [attendance, setAttendance] = useState<Record<number, string>>({});
   
   // State untuk mengunci formasi tim
@@ -588,6 +594,31 @@ export default function App() {
   const handleProcessToBracket = () => {
     setBracketLombaKey(teamGenerationLombaKey || '');
     setActiveTab('bagan');
+  };
+
+  const handleDownloadPNG = async () => {
+    if (!bracketRef.current) {
+      showToast('Elemen bagan tidak ditemukan untuk diunduh.');
+      return;
+    }
+
+    showToast('Mempersiapkan gambar PNG, harap tunggu...');
+
+    try {
+      const dataUrl = await toPng(bracketRef.current, {
+        cacheBust: true,
+        pixelRatio: 2, // Meningkatkan resolusi untuk kualitas lebih baik
+        backgroundColor: '#f8fafc', // Sesuaikan dengan warna bg-slate-50/50
+      });
+
+      const link = document.createElement('a');
+      const lombaTitle = bracketLombaKey ? groupedLombaMap[bracketLombaKey]?.lombaTitle : 'Lomba';
+      link.download = `Bagan Pertandingan - ${lombaTitle.replace(/[^a-z0-9]/gi, '_')}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      showToast(`Gagal mengunduh PNG: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
+    }
   };
 
   // Calculate Summary Metrics
@@ -942,6 +973,7 @@ export default function App() {
         {/* Scrollable & Zoomable Viewport */}
         <div className="w-full overflow-auto max-h-[75vh] border border-slate-200 rounded-2xl bg-slate-50/50 p-4 sm:p-6 shadow-inner">
           <div 
+            ref={bracketRef}
             style={{ 
               zoom: `${bracketZoom}%`,
             } as any}
@@ -1067,7 +1099,11 @@ export default function App() {
   };
 
   return (
-    <div className="bg-slate-50 min-h-screen text-slate-800 flex flex-col font-sans">
+    <div className={`bg-slate-50 min-h-screen text-slate-800 flex flex-col font-sans ${
+      isFullScreen
+        ? 'overflow-hidden'
+        : ''
+    }`}>
       
       {/* Toast Notification */}
       {toastMessage && (
@@ -1078,7 +1114,11 @@ export default function App() {
       )}
 
       {/* Header */}
-      <header className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 text-white shadow-lg print:hidden">
+      <header className={`bg-gradient-to-r from-red-600 via-red-700 to-red-800 text-white shadow-lg print:hidden ${
+        isFullScreen
+          ? 'hidden'
+          : ''
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
@@ -1116,11 +1156,15 @@ export default function App() {
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className={`flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 ${
+        isFullScreen
+          ? 'hidden'
+          : ''
+      }`}>
 
         {/* Upload Alert Notice */}
         {rawParticipants.length === 0 && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm print:hidden">
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-amber-100 text-amber-700 rounded-xl">
                 <FileSpreadsheet className="w-5 h-5" />
@@ -1138,7 +1182,7 @@ export default function App() {
         )}
 
         {/* Metric Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 print:hidden">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
             <div className="p-3 bg-red-50 text-red-600 rounded-xl">
               <Users className="w-6 h-6" />
@@ -1181,7 +1225,7 @@ export default function App() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="border-b border-slate-200 mb-6 flex space-x-2 print:hidden overflow-x-auto">
+        <div className="border-b border-slate-200 mb-6 flex space-x-2 overflow-x-auto">
           <button
             onClick={() => setActiveTab('peserta')}
             className={`py-3 px-5 font-bold text-sm border-b-2 flex items-center gap-2 whitespace-nowrap transition ${
@@ -1234,7 +1278,7 @@ export default function App() {
                     <h2 className="text-xl font-extrabold text-slate-800">Hasil Pembagian Tim</h2>
                     <p className="text-sm font-semibold text-red-600">{groupedLombaMap[teamGenerationLombaKey].lombaTitle}</p>
                     <p className="text-xs text-slate-500 mt-1">
-                      Total <strong>{generatedTeams.length} tim</strong> telah dibentuk secara acak. Klik "Acak Ulang" untuk hasil berbeda atau "Proses ke Bagan" jika sudah final.
+                      Total <strong>{generatedTeams.length} tim</strong> telah dibentuk secara acak. Klik Acak Ulang untuk hasil berbeda atau "Proses ke Bagan" jika sudah final.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1283,7 +1327,7 @@ export default function App() {
                 </div>
               </>
             ) : (
-              <p className="text-center py-12 text-slate-400">Pilih lomba dan klik "Bagi Tim" untuk melihat hasilnya di sini.</p>
+              <p className="text-center py-12 text-slate-400">Pilih lomba dan klik Bagi Tim untuk melihat hasilnya di sini.</p>
             )}
           </div>
         )}
@@ -1292,7 +1336,7 @@ export default function App() {
         {activeTab === 'peserta' && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Sidebar Lomba */}
-            <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 p-4 shadow-sm h-fit print:hidden">
+            <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 p-4 shadow-sm h-fit">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Pilih Lomba</span>
                 <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs font-bold">
@@ -1398,7 +1442,7 @@ export default function App() {
                 )}
                       </div>
 
-                      <div className="flex items-center gap-2 print:hidden">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={exportLombaCSV}
                           className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
@@ -1426,7 +1470,7 @@ export default function App() {
                       if (conf.teamSize > 1) {
                         const incompleteTeam = teams.find(t => !t.isComplete);
                         return (
-                          <div className="mb-4 space-y-3 print:hidden">
+                          <div className="mb-4 space-y-3">
                             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
                               <span className="font-semibold text-slate-700 flex items-center gap-2">
                                 <Users2 className="w-4 h-4 text-blue-600" /> Ketentuan Tim: {conf.teamSize} orang per tim.
@@ -1468,7 +1512,7 @@ export default function App() {
                     })()}
 
                     {/* Search inside selected lomba */}
-                    <div className="mb-4 print:hidden">
+                    <div className="mb-4">
                       <div className="relative">
                         <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
                         <input
@@ -1634,7 +1678,11 @@ export default function App() {
 
         {/* TAB 2: BAGAN & SESI PERTANDINGAN */}
         {activeTab === 'bagan' && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 print:border-0">
+          <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm p-6 print:border-0 ${
+            isFullScreen
+              ? 'fixed inset-0 z-50 overflow-auto'
+              : ''
+          }`}>
             {/* Controls */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4 mb-6 print:hidden">
               <div>
@@ -1842,7 +1890,7 @@ export default function App() {
       </main>
       
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-4 mt-auto print:hidden">
+      <footer className={`bg-white border-t border-slate-200 py-4 mt-auto print:hidden ${isFullScreen ? 'hidden' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400 font-medium">
           &copy; 2026 Panitia Semarak HUT RI Ke-81 Perumahan Green Hill. Built with Next.js & React.
         </div>
