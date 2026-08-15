@@ -103,13 +103,22 @@ function getLombaConfig(lombaTitle = '', categoryGroup = '') {
 }
 
 // Utility to helper group participants into teams
-function buildTeamsFromParticipants(participants: Participant[] = [], teamSize = 1): Team[] {
+function buildTeamsFromParticipants(
+  participants: Participant[] = [], 
+  teamSize = 1,
+  shouldShuffle = true
+): Team[] {
   if (!participants || participants.length === 0) return [];
+  
+  // Acak peserta hanya jika diminta
+  const participantList = shouldShuffle 
+    ? [...participants].sort(() => Math.random() - 0.5)
+    : participants;
 
-  const shuffledParticipants = participants; // Use the pre-shuffled list
   // If it's an individual competition, just return the shuffled list of participants as "teams" of 1
   if (teamSize <= 1) {
-    return shuffledParticipants.map((p, idx) => ({
+    // Untuk lomba perorangan, kita hanya perlu mengembalikan daftar yang sudah diacak
+    return participantList.map((p, idx) => ({
       teamId: `team_indiv_${p.id || idx}`,
       teamName: p.nama,
       members: [p],
@@ -123,7 +132,7 @@ function buildTeamsFromParticipants(participants: Participant[] = [], teamSize =
   let currentMembers: Participant[] = [];
   let teamNumber = 1;
 
-  shuffledParticipants.forEach((p, index) => {
+  participantList.forEach((p, index) => {
     currentMembers.push(p);
 
     if (currentMembers.length === teamSize || index === participants.length - 1) {
@@ -277,12 +286,16 @@ export default function App() {
   const [rawParticipants, setRawParticipants] = useState<Participant[]>([]);
   const [groupedLombaMap, setGroupedLombaMap] = useState<GroupedLombaMap>({});
   const [selectedLombaKey, setSelectedLombaKey] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'peserta' | 'bagan' | 'master'>('peserta');
+  const [activeTab, setActiveTab] = useState<'peserta' | 'pembagian' | 'bagan' | 'master'>('peserta');
 
   // Search States
   const [searchLomba, setSearchLomba] = useState('');
   const [searchPeserta, setSearchPeserta] = useState('');
   const [searchMaster, setSearchMaster] = useState('');
+
+  // State for team generation results
+  const [generatedTeams, setGeneratedTeams] = useState<Team[]>([]);
+  const [teamGenerationLombaKey, setTeamGenerationLombaKey] = useState<string | null>(null);
 
   type BracketWinnersMap = { [matchId: string]: Team };
   type SessionWinnersMap = { [sessionId: string]: Team[] };
@@ -291,10 +304,15 @@ export default function App() {
   const [bracketLombaKey, setBracketLombaKey] = useState('');
   const [bracketWinners, setBracketWinners] = useState<BracketWinnersMap>({});
   const [shuffledBracketParticipants, setShuffledBracketParticipants] = useState<Participant[]>([]);
+  const [attendance, setAttendance] = useState<Record<number, string>>({});
+  
+  // State untuk mengunci formasi tim
+  const [isTeamFormationLocked, setIsTeamFormationLocked] = useState(false);
+  const [lockedTeams, setLockedTeams] = useState<Team[] | null>(null);
   const [bracketZoom, setBracketZoom] = useState(100);
   
   // View Mode for Peserta Tab ('team' | 'individual')
-  const [viewMode, setViewMode] = useState<'team' | 'individual'>('team');
+  const [viewMode, setViewMode] = useState<'team' | 'individual'>('individual');
 
   // Competition Display Mode ('bracket' for Knockout Bracket | 'session' for Race/Session)
   const [competitionDisplayMode, setCompetitionDisplayMode] = useState<'bracket' | 'session'>('bracket');
@@ -315,6 +333,12 @@ export default function App() {
       const savedCSV = localStorage.getItem('dashboardLombaCSV');
       if (savedCSV) {
         processCSVContent(savedCSV);
+        const savedAttendance = localStorage.getItem('dashboardLombaAttendance');
+        if (savedAttendance) {
+          try {
+            setAttendance(JSON.parse(savedAttendance));
+          } catch (e) { console.error("Gagal memuat data kehadiran.", e); }
+        }
         showToast('Data terakhir berhasil dimuat dari penyimpanan lokal.');
       } else {
         try {
@@ -330,6 +354,13 @@ export default function App() {
     }
     loadInitialData();
   }, []);
+
+  // Save attendance to local storage whenever it changes
+  useEffect(() => {
+    if (Object.keys(attendance).length > 0) {
+      localStorage.setItem('dashboardLombaAttendance', JSON.stringify(attendance));
+    }
+  }, [attendance]);
 
   const handleZoomIn = () => {
     setBracketZoom(prev => Math.min(150, prev + 10));
@@ -478,6 +509,9 @@ export default function App() {
     setBracketLombaKey('');
     setBracketWinners({});
     setSessionWinners({});
+    setAttendance({});
+    setIsTeamFormationLocked(false);
+    setLockedTeams(null);
     setSearchLomba('');
     showToast('Data berhasil dihapus dari penyimpanan.');
   };
@@ -495,6 +529,8 @@ export default function App() {
         setSessionWinners({});
         setCompetitionDisplayMode(conf.isSessionGame ? 'session' : 'bracket');
         setPerSessionCapacity(conf.defaultCapacity);
+        setIsTeamFormationLocked(false); // Buka kunci saat ganti lomba
+        setLockedTeams(null);
       });
     }
   }, [bracketLombaKey, groupedLombaMap]);
@@ -509,7 +545,49 @@ export default function App() {
     setShuffledBracketParticipants(list);
     setBracketWinners({});
     setSessionWinners({});
+    // Jika tim sedang terkunci, buka kuncinya dan acak kembali
+    if (isTeamFormationLocked) {
+      setIsTeamFormationLocked(false);
+      setLockedTeams(null);
+    }
     showToast('Posisi peserta/tim berhasil diacak!');
+  };
+
+  const handleAttendanceChange = (participantId: number, value: string) => {
+    setAttendance(prev => ({
+      ...prev,
+      [participantId]: value
+    }));
+  };
+
+  const handleToggleLockTeams = () => {
+    if (isTeamFormationLocked) {
+      setIsTeamFormationLocked(false);
+      setLockedTeams(null);
+      showToast('Kunci pembagian tim dibuka. Tim akan diacak ulang.');
+    } else {
+      const currentTeams = buildTeamsFromParticipants(shuffledBracketParticipants, getLombaConfig(groupedLombaMap[bracketLombaKey]?.lombaTitle, groupedLombaMap[bracketLombaKey]?.categoryGroup).teamSize, false);
+      setLockedTeams(currentTeams);
+      setIsTeamFormationLocked(true);
+      showToast('Pembagian anggota tim telah dikunci!');
+    }
+  };
+
+  const handleGenerateTeams = () => {
+    if (!selectedLombaKey || !groupedLombaMap[selectedLombaKey]) return;
+    const currentLomba = groupedLombaMap[selectedLombaKey];
+    const conf = getLombaConfig(currentLomba.lombaTitle, currentLomba.categoryGroup);
+    const teams = buildTeamsFromParticipants(currentLomba.participants, conf.teamSize, true);
+    
+    setGeneratedTeams(teams);
+    setTeamGenerationLombaKey(selectedLombaKey);
+    setActiveTab('pembagian');
+    showToast(`Berhasil membagi ${teams.length} tim untuk ${currentLomba.lombaTitle}.`);
+  };
+
+  const handleProcessToBracket = () => {
+    setBracketLombaKey(teamGenerationLombaKey || '');
+    setActiveTab('bagan');
   };
 
   // Calculate Summary Metrics
@@ -556,7 +634,10 @@ export default function App() {
     const currentLomba = groupedLombaMap[bracketLombaKey];
     const conf = getLombaConfig(currentLomba.lombaTitle, currentLomba.categoryGroup);
     const rawList = shuffledBracketParticipants;
-    const items = buildTeamsFromParticipants(rawList, conf.teamSize);
+    
+    const items = isTeamFormationLocked && lockedTeams 
+      ? lockedTeams 
+      : buildTeamsFromParticipants(rawList, conf.teamSize, !isTeamFormationLocked);
 
     if (items.length === 0) {
       return (
@@ -743,8 +824,11 @@ export default function App() {
     const teamSize = conf.teamSize;
     const rawList = shuffledBracketParticipants;
 
-    // Group participants into Teams for bracket
-    const teams = buildTeamsFromParticipants(rawList, teamSize);
+    // Prioritaskan tim dari tab "Pembagian Tim", lalu tim yang dikunci, terakhir buat baru
+    const teams = teamGenerationLombaKey === bracketLombaKey && generatedTeams.length > 0
+      ? generatedTeams
+      : isTeamFormationLocked && lockedTeams ? lockedTeams
+      : buildTeamsFromParticipants(rawList, teamSize, !isTeamFormationLocked);
 
     if (teams.length < 2) {
       return (
@@ -1109,6 +1193,16 @@ export default function App() {
             <ListFilter className="w-4 h-4" /> Daftar Per Lomba
           </button>
           <button
+            onClick={() => setActiveTab('pembagian')}
+            className={`py-3 px-5 font-bold text-sm border-b-2 flex items-center gap-2 whitespace-nowrap transition ${
+              activeTab === 'pembagian'
+                ? 'border-red-600 text-red-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Users2 className="w-4 h-4" /> Hasil Pembagian Tim
+          </button>
+          <button
             onClick={() => setActiveTab('bagan')}
             className={`py-3 px-5 font-bold text-sm border-b-2 flex items-center gap-2 whitespace-nowrap transition ${
               activeTab === 'bagan'
@@ -1129,6 +1223,70 @@ export default function App() {
             <FileSpreadsheet className="w-4 h-4" /> Semua Master Data
           </button>
         </div>
+
+        {/* TAB BARU: HASIL PEMBAGIAN TIM */}
+        {activeTab === 'pembagian' && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            {teamGenerationLombaKey && groupedLombaMap[teamGenerationLombaKey] ? (
+              <>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-4 mb-4">
+                  <div>
+                    <h2 className="text-xl font-extrabold text-slate-800">Hasil Pembagian Tim</h2>
+                    <p className="text-sm font-semibold text-red-600">{groupedLombaMap[teamGenerationLombaKey].lombaTitle}</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Total <strong>{generatedTeams.length} tim</strong> telah dibentuk secara acak. Klik "Acak Ulang" untuk hasil berbeda atau "Proses ke Bagan" jika sudah final.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleGenerateTeams}
+                      className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5 border border-slate-200"
+                    >
+                      <Shuffle className="w-4 h-4" /> Acak Ulang
+                    </button>
+                    <button
+                      onClick={handleProcessToBracket}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition shadow-md flex items-center gap-2"
+                    >
+                      <Trophy className="w-4 h-4" /> Proses ke Bagan
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                  {generatedTeams.map((t) => (
+                    <div key={t.teamId} className={`border rounded-2xl p-4 shadow-sm relative ${
+                      t.isComplete ? 'bg-white border-slate-200' : 'bg-amber-50/50 border-amber-200'
+                    }`}>
+                      <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
+                        <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
+                          {t.teamName}
+                          {!t.isComplete && (
+                            <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+                              Kurang {t.missingCount} Orang
+                            </span>
+                          )}
+                        </h3>
+                        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold">
+                          Blok: {t.blokSummary}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {t.members.map((m, idx) => (
+                          <div key={m.id} className="text-xs bg-slate-50 p-2 rounded-xl">
+                            <p className="font-bold text-slate-800">{idx + 1}. {m.nama}</p>
+                            <p className="text-[10px] text-slate-500">Blok: {m.blok}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-center py-12 text-slate-400">Pilih lomba dan klik "Bagi Tim" untuk melihat hasilnya di sini.</p>
+            )}
+          </div>
+        )}
 
         {/* TAB 1: DAFTAR PER LOMBA */}
         {activeTab === 'peserta' && (
@@ -1197,7 +1355,7 @@ export default function App() {
 
             {/* Selected Lomba Content */}
             <div className="lg:col-span-3">
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 min-h-[450px]">
+              <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm print:border-0">
                 {selectedLombaKey && groupedLombaMap[selectedLombaKey] ? (
                   <>
                     {/* Header Details */}
@@ -1229,6 +1387,15 @@ export default function App() {
                         <p className="text-xs text-slate-500 mt-0.5">
                           Total Pendaftar: {groupedLombaMap[selectedLombaKey].participants.length} Orang
                         </p>
+                {getLombaConfig(groupedLombaMap[selectedLombaKey].lombaTitle, groupedLombaMap[selectedLombaKey].categoryGroup).teamSize > 1 && (
+                  <button
+                    onClick={handleGenerateTeams}
+                    className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition shadow-md flex items-center gap-2"
+                  >
+                    <Users2 className="w-5 h-5" />
+                    Bagi Tim & Lihat Hasil
+                  </button>
+                )}
                       </div>
 
                       <div className="flex items-center gap-2 print:hidden">
@@ -1322,11 +1489,14 @@ export default function App() {
                       );
                       const participants = groupedLombaMap[selectedLombaKey].participants;
                       const teams = buildTeamsFromParticipants(participants, conf.teamSize);
-
                       if (conf.teamSize > 1 && viewMode === 'team') {
                         return (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {teams.map((t) => (
+                            {buildTeamsFromParticipants(participants, conf.teamSize)
+                              .filter(t => 
+                                t.teamName.toLowerCase().includes(searchPeserta.toLowerCase()) ||
+                                t.members.some(m => m.nama.toLowerCase().includes(searchPeserta.toLowerCase())))
+                              .map((t) => (
                               <div key={t.teamId} className={`border rounded-2xl p-4 shadow-sm relative ${
                                 t.isComplete ? 'bg-white border-slate-200' : 'bg-amber-50/50 border-amber-200'
                               }`}>
@@ -1379,10 +1549,34 @@ export default function App() {
                                 <th className="py-3 px-3">Blok / Rumah</th>
                                 <th className="py-3 px-3">WhatsApp</th>
                                 <th className="py-3 px-3">Kategori</th>
+                                <th className="py-3 px-3 w-24 text-center">Keterangan Hadir</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                               {participants
+                                .slice() // Buat salinan untuk diurutkan tanpa mengubah data asli
+                                .sort((a, b) => {
+                                  const parseBlok = (blok: string) => {
+                                    const match = blok.match(/^([A-Z]+)(\d+.*)$/i);
+                                    if (!match) return { letter: blok.toLowerCase(), numbers: [] };
+
+                                    const letterPart = match[1].toLowerCase();
+                                    const numberParts = match[2].split(/[\/-]/).map(n => parseInt(n, 10)).filter(n => !isNaN(n));
+                                    
+                                    return { letter: letterPart, numbers: numberParts };
+                                  };
+
+                                  const blokA = parseBlok(a.blok);
+                                  const blokB = parseBlok(b.blok);
+
+                                  if (blokA.letter < blokB.letter) return -1;
+                                  if (blokA.letter > blokB.letter) return 1;
+
+                                  for (let i = 0; i < Math.min(blokA.numbers.length, blokB.numbers.length); i++) {
+                                    if (blokA.numbers[i] !== blokB.numbers[i]) return blokA.numbers[i] - blokB.numbers[i];
+                                  }
+                                  return blokA.numbers.length - blokB.numbers.length;
+                                })
                                 .filter(p => 
                                   p.nama.toLowerCase().includes(searchPeserta.toLowerCase()) ||
                                   p.blok.toLowerCase().includes(searchPeserta.toLowerCase())
@@ -1409,6 +1603,15 @@ export default function App() {
                                       ) : '-'}
                                     </td>
                                     <td className="py-3 px-3 text-slate-500">{p.kategori}</td>
+                                    <td className="py-3 px-3 text-center">
+                                      <input 
+                                        type="text"
+                                        value={attendance[p.id] || ''}
+                                        onChange={(e) => handleAttendanceChange(p.id, e.target.value)}
+                                        placeholder="Hadir/Izin/Sakit"
+                                        className="w-24 text-center text-xs p-1 border border-slate-300 rounded-md focus:ring-1 focus:ring-red-500 focus:border-red-500 transition"
+                                      />
+                                    </td>
                                   </tr>
                                 ))}
                             </tbody>
@@ -1431,7 +1634,7 @@ export default function App() {
 
         {/* TAB 2: BAGAN & SESI PERTANDINGAN */}
         {activeTab === 'bagan' && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 print:border-0">
             {/* Controls */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4 mb-6 print:hidden">
               <div>
@@ -1513,6 +1716,19 @@ export default function App() {
                   <Shuffle className="w-3.5 h-3.5" /> Acak Posisi
                 </button>
 
+                {getLombaConfig(groupedLombaMap[bracketLombaKey]?.lombaTitle, groupedLombaMap[bracketLombaKey]?.categoryGroup).teamSize > 1 && (
+                  <button
+                    onClick={handleToggleLockTeams}
+                    className={`px-3 py-2 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm ${
+                      isTeamFormationLocked
+                        ? 'bg-emerald-600 text-white border border-emerald-700'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                    }`}
+                  >
+                    {isTeamFormationLocked ? 'Buka Kunci Tim' : 'Kunci Pembagian Tim'}
+                  </button>
+                )}
+
                 <button
                   onClick={() => window.print()}
                   className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow"
@@ -1537,7 +1753,7 @@ export default function App() {
 
         {/* TAB 3: MASTER DATA */}
         {activeTab === 'master' && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 print:border-0">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-4 mb-4 print:hidden">
               <div>
                 <h2 className="text-xl font-extrabold text-slate-800">Master Data Pendaftar</h2>
@@ -1624,7 +1840,7 @@ export default function App() {
         )}
 
       </main>
-
+      
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-4 mt-auto print:hidden">
         <div className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400 font-medium">
